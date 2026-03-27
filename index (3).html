@@ -1,0 +1,1097 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MLB60 — Edge Tracker</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=DM+Mono:ital,wght@0,300;0,400;0,500;1,300&family=Bricolage+Grotesque:wght@300;400;500;600&display=swap');
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#08090d;--s1:#0e1118;--s2:#141720;--s3:#1c2030;
+  --bd:rgba(255,255,255,0.06);--bd2:rgba(255,255,255,0.11);
+  --tx:#e8eaf0;--mt:#5a6070;--mt2:#7a8494;
+  --gr:#00d98b;--rd:#ff4560;--am:#ffb020;--bl:#3d9eff;--pu:#a78bfa;
+  --mono:'DM Mono',monospace;--sans:'Bricolage Grotesque',sans-serif;
+}
+body{font-family:var(--sans);background:var(--bg);color:var(--tx);min-height:100vh;font-size:14px}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes fadeIn{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:translateY(0)}}
+
+/* NAV */
+.nav{background:var(--s1);border-bottom:1px solid var(--bd);padding:0 16px;display:flex;align-items:stretch;height:52px;position:sticky;top:0;z-index:100}
+.brand{display:flex;align-items:center;gap:9px;padding-right:16px;margin-right:4px;border-right:1px solid var(--bd)}
+.brand-mark{width:28px;height:28px;background:var(--gr);border-radius:7px;display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:10px;font-weight:700;color:#08090d;letter-spacing:-0.5px}
+.brand-name{font-size:15px;font-weight:600;letter-spacing:-0.3px}
+.brand-tag{font-size:9px;color:var(--mt);letter-spacing:0.8px;text-transform:uppercase}
+.nav-tabs{display:flex;align-items:stretch}
+.nav-tab{display:flex;align-items:center;padding:0 14px;font-size:12px;font-family:var(--mono);color:var(--mt2);cursor:pointer;border:none;border-bottom:2px solid transparent;background:none;transition:all 0.15s;white-space:nowrap;letter-spacing:0.3px}
+.nav-tab:hover{color:var(--tx)}
+.nav-tab.active{color:var(--gr);border-bottom-color:var(--gr)}
+.nav-right{margin-left:auto;display:flex;align-items:center;gap:10px}
+.br-pill{display:flex;align-items:center;gap:8px;background:var(--s2);border:1px solid var(--bd2);border-radius:8px;padding:5px 12px;cursor:pointer;transition:border-color 0.2s}
+.br-pill:hover{border-color:var(--gr)}
+.br-label{font-size:9px;color:var(--mt);letter-spacing:0.5px;text-transform:uppercase}
+.br-val{font-size:13px;color:var(--gr);font-weight:500;font-family:var(--mono)}
+
+/* PAGE */
+.page{display:none;max-width:900px;margin:0 auto;padding:20px 16px 60px;animation:fadeIn 0.2s ease}
+.page.active{display:block}
+
+/* CARDS */
+.card{background:var(--s1);border:1px solid var(--bd);border-radius:13px;padding:16px 18px;margin-bottom:14px}
+.card-label{font-size:9px;color:var(--gr);letter-spacing:1px;text-transform:uppercase;margin-bottom:8px;font-family:var(--mono)}
+.card-desc{font-size:12px;color:var(--mt2);line-height:1.65;margin-bottom:12px}
+.card-desc a{color:var(--bl);text-decoration:none}
+.card-desc a:hover{text-decoration:underline}
+
+/* INPUTS */
+.row{display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap}
+.api-input{flex:1;min-width:200px;background:var(--s2);border:1px solid var(--bd2);border-radius:8px;padding:0 12px;height:38px;font-family:var(--mono);font-size:12px;color:var(--tx);outline:none;transition:border-color 0.2s}
+.api-input:focus{border-color:var(--gr)}
+.api-input::placeholder{color:var(--mt)}
+.filters{display:flex;gap:8px;flex-wrap:wrap}
+.fg{display:flex;flex-direction:column;gap:5px;flex:1;min-width:120px}
+.fl{font-size:9px;color:var(--mt);letter-spacing:0.5px;text-transform:uppercase;font-family:var(--mono)}
+select{background:var(--s2);border:1px solid var(--bd2);border-radius:7px;padding:7px 10px;font-size:12px;color:var(--tx);font-family:var(--mono);outline:none;cursor:pointer;-webkit-appearance:none;transition:border-color 0.2s}
+select:focus{border-color:var(--gr)}
+
+/* BUTTONS */
+.btn{height:38px;padding:0 18px;border-radius:8px;border:none;font-family:var(--sans);font-size:13px;font-weight:600;cursor:pointer;transition:all 0.15s;white-space:nowrap}
+.btn-gr{background:var(--gr);color:#08090d}
+.btn-gr:hover{background:#00ffaa;transform:translateY(-1px)}
+.btn-gr:active{transform:translateY(0)}
+.btn-gr:disabled{opacity:0.35;cursor:not-allowed;transform:none}
+.btn-ghost{background:transparent;color:var(--mt2);border:1px solid var(--bd2)}
+.btn-ghost:hover{color:var(--tx);border-color:var(--bd2)}
+.btn-sm{height:28px;padding:0 12px;font-size:11px;border-radius:6px;font-family:var(--mono)}
+
+/* ERROR */
+.err{background:rgba(255,69,96,0.08);border:1px solid rgba(255,69,96,0.25);border-radius:8px;padding:10px 14px;font-size:12px;color:var(--rd);margin-bottom:12px;display:none;font-family:var(--mono)}
+
+/* STATS ROW */
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:16px}
+.sc{background:var(--s1);border:1px solid var(--bd);border-radius:11px;padding:11px 13px}
+.sl{font-size:9px;color:var(--mt);letter-spacing:0.5px;text-transform:uppercase;margin-bottom:5px;font-family:var(--mono)}
+.sv{font-size:20px;font-weight:600;font-family:var(--mono);line-height:1}
+.ss{font-size:10px;color:var(--mt);margin-top:3px}
+
+/* FILTER TABS */
+.ftabs{display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap}
+.ftab{padding:5px 14px;border-radius:20px;font-size:11px;font-family:var(--mono);border:1px solid var(--bd2);background:transparent;color:var(--mt2);cursor:pointer;transition:all 0.15s;letter-spacing:0.3px}
+.ftab:hover{color:var(--tx)}
+.ftab.active{background:var(--gr);color:#08090d;border-color:var(--gr);font-weight:500}
+
+/* PICK CARDS */
+.pick{background:var(--s1);border-radius:13px;overflow:hidden;margin-bottom:10px;transition:border-color 0.2s}
+.pick.ts{border:1px solid rgba(0,217,139,0.45)}
+.pick.ta{border:1px solid rgba(255,176,32,0.35)}
+.pick.tb{border:1px solid var(--bd)}
+.pick-head{padding:13px 16px;display:flex;align-items:flex-start;gap:12px;flex-wrap:wrap}
+.tier{font-size:9px;font-weight:500;padding:4px 9px;border-radius:5px;white-space:nowrap;letter-spacing:0.5px;flex-shrink:0;margin-top:2px;font-family:var(--mono)}
+.ts .tier{background:rgba(0,217,139,0.12);color:var(--gr)}
+.ta .tier{background:rgba(255,176,32,0.12);color:var(--am)}
+.tb .tier{background:rgba(255,255,255,0.05);color:var(--mt2)}
+.pick-info{flex:1;min-width:0}
+.pick-teams{font-size:14px;font-weight:600;margin-bottom:3px}
+.pick-sub{font-size:11px;color:var(--mt2)}
+.pick-sub strong{font-weight:600}
+.ts .pick-sub strong{color:var(--gr)}
+.ta .pick-sub strong{color:var(--am)}
+.pick-stake{font-size:11px;color:var(--bl);margin-top:3px;font-family:var(--mono)}
+.pick-odds-blk{text-align:right;flex-shrink:0}
+.pick-odds{font-size:18px;font-weight:500;font-family:var(--mono);line-height:1}
+.ts .pick-odds{color:var(--gr)}
+.ta .pick-odds{color:var(--am)}
+.pick-book{font-size:9px;color:var(--mt);margin-top:3px;font-family:var(--mono);letter-spacing:0.3px}
+.pick-body{border-top:1px solid var(--bd);padding:11px 16px;background:rgba(255,255,255,0.012)}
+.loading{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--mt);font-family:var(--mono)}
+.spinner{width:12px;height:12px;border:1.5px solid var(--bd2);border-top-color:var(--gr);border-radius:50%;animation:spin 0.7s linear infinite;flex-shrink:0}
+.analysis{font-size:12px;color:var(--mt2);line-height:1.7;display:none}
+.meta{display:flex;gap:18px;margin-top:10px;padding-top:10px;border-top:1px solid var(--bd);flex-wrap:wrap;align-items:flex-end}
+.mi{display:flex;flex-direction:column;gap:2px}
+.ml{font-size:9px;color:var(--mt);letter-spacing:0.5px;text-transform:uppercase;font-family:var(--mono)}
+.mv{font-size:11px;font-weight:500;font-family:var(--mono)}
+.book-row{display:flex;gap:5px;flex-wrap:wrap;margin-top:8px}
+.bp{font-size:10px;padding:2px 8px;border-radius:4px;border:1px solid var(--bd);color:var(--mt);font-family:var(--mono)}
+.bp.best{border-color:rgba(0,217,139,0.4);color:var(--gr);background:rgba(0,217,139,0.07)}
+.log-btn{background:var(--gr);color:#08090d;border:none;border-radius:6px;padding:5px 14px;font-size:11px;font-weight:700;cursor:pointer;font-family:var(--sans);transition:all 0.15s;margin-left:auto}
+.log-btn:hover{background:#00ffaa}
+.logged{font-size:10px;color:var(--gr);background:rgba(0,217,139,0.1);padding:4px 10px;border-radius:5px;border:1px solid rgba(0,217,139,0.2);margin-left:auto;font-family:var(--mono)}
+
+/* EMPTY */
+.empty{text-align:center;padding:52px 24px;color:var(--mt)}
+.empty-title{font-size:15px;color:var(--mt2);margin-bottom:8px;font-weight:500}
+.empty-desc{font-size:13px;line-height:1.65}
+
+/* SEC HEADER */
+.sec-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
+.sec-title{font-size:9px;color:var(--mt);letter-spacing:1px;text-transform:uppercase;font-family:var(--mono)}
+.count{font-size:10px;color:var(--mt);font-family:var(--mono)}
+
+/* TABLE */
+.tbl-wrap{background:var(--s1);border:1px solid var(--bd);border-radius:13px;overflow:auto;margin-bottom:14px}
+table{width:100%;border-collapse:collapse;font-size:12px}
+th{font-size:9px;color:var(--mt);letter-spacing:0.5px;text-transform:uppercase;padding:9px 12px;border-bottom:1px solid var(--bd);text-align:left;font-weight:400;white-space:nowrap;font-family:var(--mono)}
+td{padding:10px 12px;border-bottom:1px solid rgba(255,255,255,0.04);color:var(--tx);vertical-align:middle}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:rgba(255,255,255,0.02)}
+.rb{font-size:10px;font-weight:500;padding:3px 9px;border-radius:4px;font-family:var(--mono)}
+.rb.W{background:rgba(0,217,139,0.1);color:var(--gr);border:1px solid rgba(0,217,139,0.2)}
+.rb.L{background:rgba(255,69,96,0.1);color:var(--rd);border:1px solid rgba(255,69,96,0.2)}
+.rb.P{background:rgba(255,255,255,0.05);color:var(--mt2);border:1px solid var(--bd)}
+.pnl-p{color:var(--gr);font-family:var(--mono)}
+.pnl-n{color:var(--rd);font-family:var(--mono)}
+.mark-btn{font-size:10px;font-family:var(--mono);background:transparent;border:1px solid var(--bd2);border-radius:4px;padding:3px 9px;color:var(--mt2);cursor:pointer;transition:all 0.15s}
+.mark-btn:hover{border-color:var(--gr);color:var(--gr)}
+
+/* PERF */
+.perf-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:14px}
+.pc{background:var(--s1);border:1px solid var(--bd);border-radius:11px;padding:12px 14px}
+.pl{font-size:9px;color:var(--mt);letter-spacing:0.5px;text-transform:uppercase;margin-bottom:5px;font-family:var(--mono)}
+.pv{font-size:22px;font-weight:600;font-family:var(--mono);line-height:1}
+.ps{font-size:10px;color:var(--mt);margin-top:4px}
+.calib{background:var(--s1);border:1px solid var(--bd);border-radius:11px;padding:14px 16px;margin-bottom:14px}
+.calib-title{font-size:9px;color:var(--mt);letter-spacing:0.5px;text-transform:uppercase;margin-bottom:12px;font-family:var(--mono)}
+.crow{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+.clbl{font-size:11px;color:var(--mt2);width:58px;flex-shrink:0;font-family:var(--mono)}
+.cbar{flex:1;background:var(--s2);border-radius:4px;height:8px;overflow:hidden}
+.cfill{height:100%;border-radius:4px;transition:width 0.5s ease}
+.cpct{font-size:11px;font-family:var(--mono);width:38px;text-align:right}
+.ccount{font-size:10px;color:var(--mt);width:48px;font-family:var(--mono)}
+.calib-note{font-size:11px;color:var(--mt);margin-top:8px;line-height:1.6}
+
+/* MODAL */
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,0.8);z-index:200;display:none;align-items:center;justify-content:center;padding:16px}
+.overlay.open{display:flex}
+.modal{background:var(--s1);border:1px solid var(--bd2);border-radius:16px;padding:22px;width:100%;max-width:400px}
+.modal-title{font-size:9px;color:var(--gr);letter-spacing:1px;text-transform:uppercase;margin-bottom:14px;font-family:var(--mono)}
+.modal-lbl{font-size:11px;color:var(--mt2);margin-bottom:6px}
+.modal-input{width:100%;background:var(--s2);border:1px solid var(--bd2);border-radius:8px;padding:10px 13px;font-size:15px;font-family:var(--mono);color:var(--tx);outline:none;transition:border-color 0.2s;margin-bottom:14px}
+.modal-input:focus{border-color:var(--gr)}
+.modal-actions{display:flex;gap:8px}
+.log-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px}
+.lf{display:flex;flex-direction:column;gap:5px}
+.lf.full{grid-column:1/-1}
+.ll{font-size:11px;color:var(--mt2)}
+.li{background:var(--s2);border:1px solid var(--bd2);border-radius:7px;padding:8px 11px;font-size:13px;font-family:var(--mono);color:var(--tx);outline:none;width:100%;transition:border-color 0.2s}
+.li:focus{border-color:var(--gr)}
+.stake-box{background:var(--s2);border:1px solid var(--bd);border-radius:8px;padding:11px 13px;margin-bottom:14px}
+.stake-box-title{font-size:9px;color:var(--mt);letter-spacing:0.5px;text-transform:uppercase;margin-bottom:9px;font-family:var(--mono)}
+.srow{display:flex;justify-content:space-between;font-size:11px;margin-bottom:5px;font-family:var(--mono)}
+.srow:last-child{margin-bottom:0}
+.slbl{color:var(--mt2)}
+.sval{font-weight:500}
+.resolve-modal{background:var(--s1);border:1px solid var(--bd2);border-radius:14px;padding:20px;width:100%;max-width:300px}
+.rinfo{font-size:12px;color:var(--mt2);margin-bottom:16px;font-family:var(--mono);line-height:1.5}
+.rbtns{display:flex;gap:8px;margin-bottom:8px}
+.rw{flex:1;background:rgba(0,217,139,0.1);color:var(--gr);border:1px solid rgba(0,217,139,0.25);border-radius:8px;padding:12px;font-size:14px;font-weight:700;cursor:pointer;font-family:var(--sans);transition:all 0.15s}
+.rw:hover{background:rgba(0,217,139,0.2)}
+.rl{flex:1;background:rgba(255,69,96,0.08);color:var(--rd);border:1px solid rgba(255,69,96,0.2);border-radius:8px;padding:12px;font-size:14px;font-weight:700;cursor:pointer;font-family:var(--sans);transition:all 0.15s}
+.rl:hover{background:rgba(255,69,96,0.16)}
+
+/* ALERT BANNER */
+.alert-banner{background:rgba(0,217,139,0.08);border:1px solid rgba(0,217,139,0.25);border-radius:8px;padding:10px 14px;font-size:12px;color:var(--gr);margin-bottom:12px;display:none;font-family:var(--mono);animation:fadeIn 0.3s ease}
+
+/* PROMOS */
+.promo-section{background:var(--s1);border:1px solid var(--bd);border-radius:13px;padding:14px 16px;margin-bottom:14px}
+.promo-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+.promo-list{display:flex;flex-direction:column;gap:6px;margin-bottom:10px}
+.promo-item{display:flex;align-items:center;gap:10px;background:var(--s2);border-radius:8px;padding:8px 12px;border:1px solid var(--bd)}
+.promo-book{font-size:11px;font-family:var(--mono);color:var(--am);font-weight:500;min-width:80px}
+.promo-type{font-size:11px;color:var(--mt2);flex:1}
+.promo-val{font-size:12px;font-family:var(--mono);color:var(--tx);font-weight:500}
+.promo-urgency{font-size:10px;font-family:var(--mono);padding:2px 8px;border-radius:4px;white-space:nowrap}
+.urgency-high{background:rgba(255,69,96,0.12);color:var(--rd);border:1px solid rgba(255,69,96,0.25)}
+.urgency-med{background:rgba(255,176,32,0.12);color:var(--am);border:1px solid rgba(255,176,32,0.25)}
+.urgency-low{background:rgba(255,255,255,0.05);color:var(--mt2);border:1px solid var(--bd)}
+.promo-del{background:transparent;border:none;color:var(--mt);cursor:pointer;font-size:14px;padding:0 4px;line-height:1;transition:color 0.15s}
+.promo-del:hover{color:var(--rd)}
+.promo-picks-section{margin-top:1rem}
+.promo-pick-card{background:var(--s1);border:1px solid rgba(255,176,32,0.3);border-radius:12px;overflow:hidden;margin-bottom:8px}
+.promo-pick-head{padding:10px 14px;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.promo-badge{font-size:9px;font-weight:500;padding:3px 8px;border-radius:4px;background:rgba(255,176,32,0.12);color:var(--am);font-family:var(--mono);letter-spacing:0.5px;white-space:nowrap;flex-shrink:0}
+.promo-body{border-top:1px solid var(--bd);padding:10px 14px;background:rgba(255,255,255,0.01)}
+.urgency-bar{display:flex;align-items:center;gap:8px;margin-bottom:8px;font-size:11px;color:var(--mt2)}
+
+/* QUOTA */
+.quota-pill{display:flex;align-items:center;gap:6px;background:var(--s2);border:1px solid var(--bd2);border-radius:8px;padding:5px 12px}
+.quota-label{font-size:9px;color:var(--mt);letter-spacing:0.5px;text-transform:uppercase;font-family:var(--mono)}
+.quota-val{font-size:13px;font-weight:500;font-family:var(--mono)}
+.quota-ok{color:var(--gr)}
+.quota-warn{color:var(--am)}
+.quota-low{color:var(--rd)}
+
+/* NON-QUALIFYING */
+.nq-toggle{display:flex;align-items:center;gap:8px;cursor:pointer;padding:10px 0;font-size:11px;color:var(--mt2);font-family:var(--mono);letter-spacing:0.3px;user-select:none;border-top:1px solid var(--bd);margin-top:4px}
+.nq-toggle:hover{color:var(--tx)}
+.nq-arrow{font-size:10px;transition:transform 0.2s;display:inline-block}
+.nq-arrow.open{transform:rotate(90deg)}
+.nq-grid{display:none;margin-top:8px;display:flex;flex-direction:column;gap:6px}
+.nq-card{background:var(--s1);border:1px solid var(--bd);border-radius:10px;padding:10px 14px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nq-teams{flex:1;min-width:0}
+.nq-name{font-size:13px;font-weight:500;margin-bottom:2px}
+.nq-time{font-size:11px;color:var(--mt)}
+.nq-reason{font-size:10px;font-family:var(--mono);padding:3px 9px;border-radius:4px;white-space:nowrap;background:rgba(255,255,255,0.04);color:var(--mt2);border:1px solid var(--bd)}
+.nq-odds-blk{text-align:right}
+.nq-odds{font-size:14px;font-family:var(--mono);color:var(--mt2)}
+.nq-prob{font-size:10px;color:var(--mt);font-family:var(--mono);margin-top:2px}
+
+@media(max-width:580px){
+  .stats{grid-template-columns:1fr 1fr}
+  .perf-grid{grid-template-columns:1fr 1fr}
+  .row{flex-direction:column}
+  .btn{width:100%}
+  .nav-tab{padding:0 10px;font-size:11px}
+  .quota-pill{display:none}
+}
+</style>
+</head>
+<body>
+
+<!-- BANKROLL MODAL -->
+<div class="overlay" id="br-overlay">
+  <div class="modal">
+    <div class="modal-title">Set Bankroll</div>
+    <div class="modal-lbl">Current bankroll ($)</div>
+    <input class="modal-input" type="number" id="br-input" placeholder="e.g. 500" min="1" />
+    <div class="modal-actions">
+      <button class="btn btn-gr" onclick="saveBankroll()">Save</button>
+      <button class="btn btn-ghost" onclick="closeModal('br-overlay')">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- LOG BET MODAL -->
+<div class="overlay" id="log-overlay">
+  <div class="modal" style="max-width:420px">
+    <div class="modal-title">Log Bet</div>
+    <div id="log-hdr" style="font-size:12px;color:var(--mt2);margin-bottom:12px;padding-bottom:12px;border-bottom:1px solid var(--bd)"></div>
+    <div class="stake-box" id="stake-box"></div>
+    <div class="log-grid">
+      <div class="lf"><div class="ll">Actual odds</div><input class="li" type="number" id="log-odds" /></div>
+      <div class="lf"><div class="ll">Stake ($)</div><input class="li" type="number" id="log-stake" /></div>
+      <div class="lf full"><div class="ll">Sportsbook</div><input class="li" type="text" id="log-book" /></div>
+      <div class="lf full"><div class="ll">Notes (optional)</div><input class="li" type="text" id="log-notes" placeholder="e.g. sharp line move" /></div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-gr" onclick="confirmLog()">Log Bet</button>
+      <button class="btn btn-ghost" onclick="closeModal('log-overlay')">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- RESOLVE MODAL -->
+<div class="overlay" id="resolve-overlay">
+  <div class="resolve-modal">
+    <div class="modal-title">Mark result</div>
+    <div class="rinfo" id="resolve-info"></div>
+    <div class="rbtns">
+      <button class="rw" onclick="resolveBet('W')">WIN</button>
+      <button class="rl" onclick="resolveBet('L')">LOSS</button>
+    </div>
+    <button class="btn btn-ghost" style="width:100%;margin-top:4px" onclick="closeModal('resolve-overlay')">Cancel</button>
+  </div>
+</div>
+
+<!-- PROMO MODAL -->
+<div class="overlay" id="promo-overlay">
+  <div class="modal" style="max-width:440px">
+    <div class="modal-title">Add Promo / Token</div>
+    <div class="log-grid">
+      <div class="lf full">
+        <div class="ll">Sportsbook</div>
+        <select class="li" id="pm-book" style="height:36px">
+          <option value="DraftKings">DraftKings</option>
+          <option value="FanDuel">FanDuel</option>
+          <option value="BetMGM">BetMGM</option>
+          <option value="Caesars">Caesars</option>
+          <option value="PointsBet">PointsBet</option>
+          <option value="Barstool">Barstool</option>
+        </select>
+      </div>
+      <div class="lf full">
+        <div class="ll">Promo type</div>
+        <select class="li" id="pm-type" style="height:36px" onchange="updatePromoHelp()">
+          <option value="odds_boost">Odds Token / Odds Boost (% added to line)</option>
+          <option value="profit_boost">Profit Boost (% added to payout)</option>
+          <option value="no_sweat">No Sweat Token (free bet if loss)</option>
+          <option value="bonus_bet">Bonus Bet (free stake, no return of stake)</option>
+        </select>
+      </div>
+      <div class="lf">
+        <div class="ll" id="pm-val-label">Boost % (e.g. 20 for 20%)</div>
+        <input class="li" type="number" id="pm-value" placeholder="e.g. 20" min="1" />
+      </div>
+      <div class="lf">
+        <div class="ll">Max stake ($)</div>
+        <input class="li" type="number" id="pm-maxstake" placeholder="e.g. 25" />
+      </div>
+      <div class="lf full">
+        <div class="ll">Expiry date</div>
+        <input class="li" type="date" id="pm-expiry" />
+      </div>
+      <div class="lf full">
+        <div class="ll">Notes (optional)</div>
+        <input class="li" type="text" id="pm-notes" placeholder="e.g. Can use on any MLB moneyline" />
+      </div>
+    </div>
+    <div id="pm-help" style="font-size:11px;color:var(--mt2);background:var(--s2);border-radius:7px;padding:8px 10px;margin-bottom:12px;line-height:1.5"></div>
+    <div class="modal-actions">
+      <button class="btn btn-gr" onclick="savePromo()">Add Promo</button>
+      <button class="btn btn-ghost" onclick="closeModal('promo-overlay')">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- NAV -->
+<nav class="nav">
+  <div class="brand">
+    <div class="brand-mark">60</div>
+    <div>
+      <div class="brand-name">MLB60</div>
+      <div class="brand-tag">Edge Tracker</div>
+    </div>
+  </div>
+  <div class="nav-tabs">
+    <button class="nav-tab active" onclick="showPage('picks',this)">Today's Picks</button>
+    <button class="nav-tab" onclick="showPage('history',this)">Bet History</button>
+    <button class="nav-tab" onclick="showPage('performance',this)">Performance</button>
+  </div>
+  <div class="nav-right">
+    <div class="quota-pill" id="quota-pill" style="display:none">
+      <div class="quota-label">API Left</div>
+      <div class="quota-val" id="quota-val">—</div>
+    </div>
+    <div class="br-pill" onclick="openBRModal()">
+      <div class="br-label">Bankroll</div>
+      <div class="br-val" id="br-display">$—</div>
+    </div>
+  </div>
+</nav>
+
+<!-- PICKS PAGE -->
+<div class="page active" id="page-picks">
+  <div class="card">
+    <div class="card-label">Configuration</div>
+    <div class="card-desc">Enter your <a href="https://the-odds-api.com/#get-access" target="_blank">Odds API key</a> to scan today's MLB moneylines. Free tier covers ~500 requests/month — plenty for daily use.</div>
+    <div class="row">
+      <input class="api-input" type="password" id="api-key" placeholder="Paste Odds API key..." />
+      <button class="btn btn-gr" id="fetch-btn" onclick="fetchGames()">Scan Lines</button>
+    </div>
+    <div class="filters">
+      <div class="fg">
+        <div class="fl">Min Win Prob</div>
+        <select id="min-prob"><option value="55">≥55%</option><option value="60" selected>≥60% (MLB60)</option><option value="65">≥65%</option></select>
+      </div>
+      <div class="fg">
+        <div class="fl">Max Odds</div>
+        <select id="max-odds"><option value="-150">≤ –150</option><option value="-200" selected>≤ –200</option><option value="-250">≤ –250</option></select>
+      </div>
+      <div class="fg">
+        <div class="fl">Min Edge</div>
+        <select id="min-edge"><option value="1">≥1%</option><option value="2">≥2%</option><option value="3" selected>≥3%</option><option value="5">≥5%</option></select>
+      </div>
+    </div>
+  </div>
+
+  <div class="err" id="err"></div>
+  <div class="alert-banner" id="alert-banner"></div>
+
+  <div id="picks-wrap" style="display:none">
+    <div class="stats" id="picks-stats"></div>
+    <div class="sec-hdr">
+      <div class="sec-title">Qualified Picks</div>
+      <div class="count" id="picks-count"></div>
+    </div>
+    <div class="ftabs">
+      <button class="ftab active" onclick="setFilter('all',this)">All picks</button>
+      <button class="ftab" onclick="setFilter('s',this)">Strong ≥8%</button>
+      <button class="ftab" onclick="setFilter('moved',this)">Line moved</button>
+      <button class="ftab" onclick="setFilter('value',this)">Underdog value</button>
+    </div>
+    <div id="picks-grid"></div>
+    <div id="nq-section" style="display:none">
+      <div class="nq-toggle" onclick="toggleNQ(this)">
+        <span class="nq-arrow" id="nq-arrow">▶</span>
+        <span id="nq-label">Show non-qualifying games</span>
+      </div>
+      <div id="nq-grid" style="display:none"></div>
+    </div>
+  </div>
+
+  <!-- PROMO PICKS -->
+  <div id="promo-picks-wrap" style="display:none;margin-top:8px">
+    <div class="sec-hdr" style="margin-top:8px">
+      <div class="sec-title">Promo / Token Picks</div>
+      <div class="count" id="promo-picks-count"></div>
+    </div>
+    <div id="promo-picks-grid"></div>
+  </div>
+
+  <!-- PROMO MANAGER -->
+  <div class="promo-section" id="promo-manager" style="margin-top:16px">
+    <div class="promo-hdr">
+      <div class="card-label" style="margin-bottom:0">Active Promos & Tokens</div>
+      <button class="btn btn-ghost btn-sm" onclick="openPromoModal()">+ Add Promo</button>
+    </div>
+    <div id="promo-list"><div style="font-size:12px;color:var(--mt);padding:4px 0">No active promos. Add tokens or boosts above to see promo-adjusted picks.</div></div>
+  </div>
+
+  <div id="picks-empty" class="empty">
+    <div class="empty-title">Ready to scan</div>
+    <div class="empty-desc">Enter your Odds API key and hit Scan Lines.<br>Only games meeting MLB60 criteria will appear.</div>
+  </div>
+</div>
+
+<!-- HISTORY PAGE -->
+<div class="page" id="page-history">
+  <div class="sec-hdr">
+    <div class="sec-title">Bet History</div>
+    <button class="btn btn-ghost btn-sm" onclick="exportCSV()">Export CSV</button>
+  </div>
+  <div id="hist-empty" class="empty">
+    <div class="empty-title">No bets logged yet</div>
+    <div class="empty-desc">Log bets from the Today's Picks tab.<br>Mark results here once games finish.</div>
+  </div>
+  <div class="tbl-wrap" id="hist-table" style="display:none">
+    <table>
+      <thead><tr><th>Date</th><th>Pick</th><th>Odds</th><th>Stake</th><th>Book</th><th>Result</th><th>P&L</th><th>Edge</th><th></th></tr></thead>
+      <tbody id="hist-tbody"></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- PERFORMANCE PAGE -->
+<div class="page" id="page-performance">
+  <div class="sec-hdr">
+    <div class="sec-title">MLB60 Performance</div>
+    <button class="btn btn-ghost btn-sm" onclick="exportCSV()">Export CSV</button>
+  </div>
+  <div id="perf-content"></div>
+</div>
+
+<script>
+// ── STATE ─────────────────────────────────────────────────────────────
+const BOOKS = 'draftkings,fanduel,betmgm,caesars,pointsbet,barstool';
+let bankroll = 500, bets = [], allPicks = [], allNQGames = [], promos = [], currentFilter = 'all';
+let pendingPick = null, pendingResolveId = null;
+
+// ── STORAGE ──────────────────────────────────────────────────────────
+function load() {
+  try { bankroll = parseFloat(localStorage.getItem('mlb60_br') || '500'); } catch(e){}
+  try { bets = JSON.parse(localStorage.getItem('mlb60_bets') || '[]'); } catch(e){}
+  try { promos = JSON.parse(localStorage.getItem('mlb60_promos') || '[]'); } catch(e){}
+  try { const k = localStorage.getItem('mlb60_key'); if(k) document.getElementById('api-key').value = k; } catch(e){}
+  updateBR();
+  renderPromoList();
+}
+function save() {
+  try {
+    localStorage.setItem('mlb60_br', bankroll);
+    localStorage.setItem('mlb60_bets', JSON.stringify(bets));
+    localStorage.setItem('mlb60_promos', JSON.stringify(promos));
+  } catch(e){}
+}
+
+// ── UTILS ─────────────────────────────────────────────────────────────
+function a2i(a) { return a > 0 ? 100/(a+100) : Math.abs(a)/(Math.abs(a)+100); }
+function novig(h,a) { const t=h+a; return {h:h/t,a:a/t}; }
+function fo(o) { return (o>0?'+':'')+o; }
+function fm(n) { return (n>=0?'+':'-')+'$'+Math.abs(n).toFixed(2); }
+function stake(odds,edge,br) { const p=edge>=8?0.055:odds<-200?0.03:0.04; return Math.max(5,Math.round(br*p)); }
+function pnl(odds,st,res) { if(res==='L')return -st; return parseFloat((odds>0?(odds/100)*st:(100/Math.abs(odds))*st).toFixed(2)); }
+function tier(edge,prob) {
+  if(edge>=8&&prob>=0.65) return {c:'ts',l:'S — STRONG EDGE'};
+  if(edge>=4||prob>=0.62) return {c:'ta',l:'A — VALUE'};
+  return {c:'tb',l:'B — WATCH'};
+}
+
+// ── NAV ───────────────────────────────────────────────────────────────
+function showPage(id,el) {
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.nav-tab').forEach(t=>t.classList.remove('active'));
+  document.getElementById('page-'+id).classList.add('active');
+  el.classList.add('active');
+  if(id==='history') renderHistory();
+  if(id==='performance') renderPerf();
+}
+
+// ── BANKROLL ──────────────────────────────────────────────────────────
+function updateBR() { document.getElementById('br-display').textContent = '$'+bankroll.toLocaleString(); }
+function openBRModal() { document.getElementById('br-input').value = bankroll; document.getElementById('br-overlay').classList.add('open'); setTimeout(()=>document.getElementById('br-input').focus(),80); }
+function saveBankroll() {
+  const v = parseFloat(document.getElementById('br-input').value);
+  if(v>0){bankroll=v;save();updateBR();}
+  closeModal('br-overlay');
+}
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+
+// ── FETCH ─────────────────────────────────────────────────────────────
+async function fetchGames() {
+  const key = document.getElementById('api-key').value.trim();
+  if(!key){showErr('Enter your Odds API key first.');return;}
+  try { localStorage.setItem('mlb60_key', key); } catch(e){}
+  const btn = document.getElementById('fetch-btn');
+  btn.disabled = true; btn.textContent = 'Scanning...';
+  document.getElementById('err').style.display = 'none';
+  document.getElementById('alert-banner').style.display = 'none';
+  document.getElementById('picks-empty').style.display = 'none';
+  document.getElementById('picks-wrap').style.display = 'none';
+  try {
+    const res = await fetch(`https://api.the-odds-api.com/v4/sports/baseball_mlb/odds/?apiKey=${key}&regions=us&markets=h2h&oddsFormat=american&bookmakers=${BOOKS}`);
+    if(!res.ok){const e=await res.json().catch(()=>({}));throw new Error(e.message||'API error '+res.status);}
+    // capture quota
+    const remaining = res.headers.get('x-requests-remaining');
+    if(remaining!==null) updateQuota(parseInt(remaining));
+    const games = await res.json();
+    if(!games.length){
+      document.getElementById('picks-empty').style.display='block';
+      document.getElementById('picks-empty').innerHTML='<div class="empty-title">No games today</div><div class="empty-desc">No MLB games scheduled. Check back on game days.</div>';
+      return;
+    }
+    processGames(games);
+  } catch(e) {
+    showErr('Error: '+e.message+'. Check your API key and try again.');
+    document.getElementById('picks-empty').style.display='block';
+  } finally {
+    btn.disabled=false; btn.textContent='Scan Lines';
+  }
+}
+
+function processGames(games) {
+  const minP = parseFloat(document.getElementById('min-prob').value)/100;
+  const maxO = parseFloat(document.getElementById('max-odds').value);
+  const minE = parseFloat(document.getElementById('min-edge').value);
+  allPicks = [];
+  const nqGames = [];
+
+  for(const g of games) {
+    const home=g.home_team, away=g.away_team, books=g.bookmakers||[];
+    if(books.length < 2) continue;
+    let ha=[], aa=[];
+    for(const bk of books){
+      const h2h=bk.markets?.find(m=>m.key==='h2h'); if(!h2h) continue;
+      const ho=h2h.outcomes.find(o=>o.name===home), ao=h2h.outcomes.find(o=>o.name===away);
+      if(ho&&ao){ha.push({book:bk.title,odds:ho.price});aa.push({book:bk.title,odds:ao.price});}
+    }
+    if(ha.length < 2) continue;
+
+    const avgHP=ha.reduce((s,b)=>s+a2i(b.odds),0)/ha.length;
+    const avgAP=aa.reduce((s,b)=>s+a2i(b.odds),0)/aa.length;
+    const {h:tH,a:tA}=novig(avgHP,avgAP);
+    const bH=ha.reduce((a,b)=>a.odds>b.odds?a:b);
+    const bA=aa.reduce((a,b)=>a.odds>b.odds?a:b);
+    const iH=a2i(bH.odds), iA=a2i(bA.odds);
+    const eH=(tH-iH)*100, eA=(tA-iA)*100;
+    const spH=Math.max(...ha.map(b=>b.odds))-Math.min(...ha.map(b=>b.odds));
+    const spA=Math.max(...aa.map(b=>b.odds))-Math.min(...aa.map(b=>b.odds));
+    const gt=new Date(g.commence_time);
+    const ts=gt.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit',hour12:true,timeZone:'America/New_York'})+' ET';
+
+    let gameQualified = false;
+    const tryAdd=(team,opp,side,edge,spread,bOdds,bBook,tProb,impl,allBks)=>{
+      if(tProb<minP||bOdds<maxO||edge<minE) return;
+      const st=stake(bOdds,edge,bankroll);
+      const logged=bets.find(b=>b.gameId===g.id&&b.side===side);
+      allPicks.push({id:`${g.id}-${side}`,gameId:g.id,team,opp,side,edge,spread,bestOdds:bOdds,bestBook:bBook,trueProb:tProb,implied:impl,allBooks:allBks,stake:st,gameTime:ts,home,away,logged:!!logged});
+      gameQualified=true;
+    };
+    tryAdd(home,away,'home',eH,spH,bH.odds,bH.book,tH,iH,ha);
+    tryAdd(away,home,'away',eA,spA,bA.odds,bA.book,tA,iA,aa);
+
+    if(!gameQualified) {
+      // determine primary reason for non-qualification (home team perspective)
+      const reason = tH < minP && tA < minP ? 'prob too low'
+        : (bH.odds < maxO && bA.odds < maxO) ? 'odds too heavy'
+        : eH < minE && eA < minE ? 'edge too thin'
+        : 'does not qualify';
+      const favTeam = tH > tA ? home : away;
+      const favOdds = tH > tA ? bH.odds : bA.odds;
+      const favProb = tH > tA ? tH : tA;
+      nqGames.push({home,away,gameTime:ts,reason,favTeam,favOdds,favProb,homeProb:tH,awayProb:tA,homeOdds:bH.odds,awayOdds:bA.odds,homeBook:bH.book,awayBook:bA.book});
+    }
+  }
+
+  allPicks.sort((a,b)=>b.edge-a.edge);
+  allNQGames = nqGames;
+  renderStats();
+  renderPicks();
+  renderNQ(nqGames);
+  renderPromoPicksFromGames(allPicks, nqGames);
+  document.getElementById('picks-wrap').style.display='block';
+  if(allPicks.length===0) {
+    document.getElementById('picks-empty').style.display='block';
+    document.getElementById('picks-empty').innerHTML='<div class="empty-title">No qualifying picks today</div><div class="empty-desc">No games cleared the MLB60 filters today.<br>This protects your bankroll on thin days.</div>';
+  }
+  allPicks.slice(0,5).forEach(p=>analyzePick(p));
+}
+
+function renderStats() {
+  const strong=allPicks.filter(p=>p.edge>=8).length;
+  const exp=allPicks.reduce((s,p)=>s+p.stake,0);
+  const avg=allPicks.length?(allPicks.reduce((s,p)=>s+p.edge,0)/allPicks.length).toFixed(1):0;
+  document.getElementById('picks-stats').innerHTML=`
+    <div class="sc"><div class="sl">Qualified</div><div class="sv" style="color:var(--gr)">${allPicks.length}</div></div>
+    <div class="sc"><div class="sl">Strong ≥8%</div><div class="sv" style="color:var(--am)">${strong}</div></div>
+    <div class="sc"><div class="sl">Total exposure</div><div class="sv" style="color:var(--pu)">$${exp}</div><div class="ss">if all logged</div></div>
+    <div class="sc"><div class="sl">Avg edge</div><div class="sv" style="color:var(--bl)">+${avg}%</div></div>`;
+  document.getElementById('picks-count').textContent=allPicks.length+' picks';
+}
+
+function setFilter(f,el) {
+  currentFilter=f;
+  document.querySelectorAll('.ftab').forEach(t=>t.classList.remove('active'));
+  el.classList.add('active');
+  renderPicks();
+}
+
+function renderPicks() {
+  const fp=allPicks.filter(p=>{
+    if(currentFilter==='s') return p.edge>=8;
+    if(currentFilter==='moved') return p.spread>=8;
+    if(currentFilter==='value') return p.trueProb<0.52&&p.edge>=3;
+    return true;
+  });
+  const grid=document.getElementById('picks-grid');
+  if(!fp.length){grid.innerHTML='<div class="empty" style="padding:28px"><div class="empty-title">No picks match this filter</div></div>';return;}
+  grid.innerHTML=fp.map(p=>{
+    const{c,l}=tier(p.edge,p.trueProb);
+    const bks=p.allBooks.map(b=>`<span class="bp ${b.book===p.bestBook?'best':''}">${b.book}: ${fo(b.odds)}</span>`).join('');
+    const logEl=p.logged
+      ?`<div class="logged">LOGGED</div>`
+      :`<button class="log-btn" onclick="openLog('${p.id}')">Log Bet</button>`;
+    const oddsColor=c==='ts'?'var(--gr)':c==='ta'?'var(--am)':'var(--tx)';
+    return `<div class="pick ${c}" id="pick-${p.id}">
+      <div class="pick-head">
+        <div class="tier">${l}</div>
+        <div class="pick-info">
+          <div class="pick-teams">${p.team} vs ${p.opp}</div>
+          <div class="pick-sub">Bet <strong>${p.team}</strong> &nbsp;·&nbsp; ${p.gameTime}</div>
+          <div class="pick-stake">$${p.stake} rec. stake &nbsp;(${((p.stake/bankroll)*100).toFixed(1)}% bankroll)</div>
+        </div>
+        <div class="pick-odds-blk">
+          <div class="pick-odds" style="color:${oddsColor}">${fo(p.bestOdds)}</div>
+          <div class="pick-book">${p.bestBook.toUpperCase()}</div>
+        </div>
+      </div>
+      <div class="pick-body">
+        <div class="loading" id="load-${p.id}"><div class="spinner"></div>Generating analysis...</div>
+        <div class="analysis" id="anl-${p.id}"></div>
+        <div class="meta">
+          <div class="mi"><div class="ml">True prob</div><div class="mv" style="color:var(--bl)">${(p.trueProb*100).toFixed(1)}%</div></div>
+          <div class="mi"><div class="ml">Implied</div><div class="mv" style="color:var(--mt2)">${(p.implied*100).toFixed(1)}%</div></div>
+          <div class="mi"><div class="ml">Edge</div><div class="mv" style="color:${p.edge>=4?'var(--gr)':'var(--mt2)'}">${p.edge>=0?'+':''}${p.edge.toFixed(1)}%</div></div>
+          <div class="mi"><div class="ml">Book spread</div><div class="mv" style="color:${p.spread>=8?'var(--am)':'var(--mt2)'}">${p.spread.toFixed(0)}pt</div></div>
+          ${logEl}
+        </div>
+        <div class="book-row">${bks}</div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ── CLAUDE ANALYSIS ───────────────────────────────────────────────────
+async function analyzePick(p) {
+  const loadEl=document.getElementById('load-'+p.id);
+  const anlEl=document.getElementById('anl-'+p.id);
+  if(!loadEl||!anlEl) return;
+  const bStr=p.allBooks.map(b=>`${b.book}: ${fo(b.odds)}`).join(', ');
+  const prompt=`You are a sharp MLB betting analyst. Write 2 sentences of plain analysis for this MLB60 pick. Be specific about the edge source. No bullets. Under 55 words. End with "Rec: Bet up to ${fo(p.bestOdds)} at ${p.bestBook}."
+
+${p.team} ML vs ${p.opp} | ${p.gameTime}
+Best: ${fo(p.bestOdds)} @ ${p.bestBook} | Books: ${bStr}
+True prob: ${(p.trueProb*100).toFixed(1)}% | Implied: ${(p.implied*100).toFixed(1)}% | Edge: ${p.edge.toFixed(1)}% | Book spread: ${p.spread.toFixed(0)}pt`;
+  try {
+    const res=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:130,messages:[{role:'user',content:prompt}]})});
+    const data=await res.json();
+    const text=data.content?.map(c=>c.text||'').join('')||'';
+    if(text){loadEl.style.display='none';anlEl.style.display='block';anlEl.textContent=text;}
+  } catch(e) {
+    loadEl.style.display='none';anlEl.style.display='block';
+    anlEl.textContent=`${p.team} shows ${p.edge.toFixed(1)}% edge vs consensus. Book spread of ${p.spread.toFixed(0)}pt signals market disagreement. Rec: Bet up to ${fo(p.bestOdds)} at ${p.bestBook}.`;
+  }
+}
+
+// ── LOG BET ───────────────────────────────────────────────────────────
+function openLog(id) {
+  pendingPick=allPicks.find(p=>p.id===id); if(!pendingPick) return;
+  const p=pendingPick;
+  document.getElementById('log-hdr').innerHTML=`<strong style="color:var(--tx)">${p.team}</strong> ML vs ${p.opp} &nbsp;·&nbsp; ${p.gameTime}<br><span style="color:var(--gr);font-family:var(--mono)">${fo(p.bestOdds)} @ ${p.bestBook}</span>`;
+  document.getElementById('log-odds').value=p.bestOdds;
+  document.getElementById('log-stake').value=p.stake;
+  document.getElementById('log-book').value=p.bestBook;
+  document.getElementById('log-notes').value='';
+  const base=Math.max(5,Math.round(bankroll*0.04));
+  const tier_lbl=p.edge>=8?'Strong edge (5.5%)':p.bestOdds<-200?'Heavy fav (3%)':'Standard (4%)';
+  document.getElementById('stake-box').innerHTML=`
+    <div class="stake-box-title">Stake sizing — MLB60 rules</div>
+    <div class="srow"><span class="slbl">Bankroll</span><span class="sval">$${bankroll.toLocaleString()}</span></div>
+    <div class="srow"><span class="slbl">Base (4%)</span><span class="sval">$${base}</span></div>
+    <div class="srow"><span class="slbl">Tier</span><span class="sval" style="color:var(--bl)">${tier_lbl}</span></div>
+    <div class="srow"><span class="slbl">Recommended</span><span class="sval" style="color:var(--gr);font-size:14px">$${p.stake} (${((p.stake/bankroll)*100).toFixed(1)}%)</span></div>`;
+  document.getElementById('log-overlay').classList.add('open');
+}
+
+function confirmLog() {
+  if(!pendingPick) return;
+  const p=pendingPick;
+  const today=new Date().toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
+  const bet={
+    id:Date.now(),date:today,gameId:p.gameId,side:p.side,
+    team:p.team,opp:p.opp,gameTime:p.gameTime,
+    odds:parseFloat(document.getElementById('log-odds').value)||p.bestOdds,
+    stake:parseFloat(document.getElementById('log-stake').value)||p.stake,
+    book:document.getElementById('log-book').value||p.bestBook,
+    notes:document.getElementById('log-notes').value,
+    edge:p.edge,trueProb:p.trueProb,result:'P',pnl:0
+  };
+  bets.push(bet); save();
+  allPicks=allPicks.map(pk=>pk.id===p.id?{...pk,logged:true}:pk);
+  renderPicks();
+  closeModal('log-overlay');
+  showAlert(`Bet logged: ${p.team} ML ${fo(bet.odds)} · $${bet.stake}`);
+}
+
+// ── RESOLVE ───────────────────────────────────────────────────────────
+function openResolve(id) {
+  pendingResolveId=id;
+  const b=bets.find(b=>b.id===id); if(!b) return;
+  document.getElementById('resolve-info').textContent=`${b.team} ML vs ${b.opp}\n${fo(b.odds)} · $${b.stake} · ${b.book}`;
+  document.getElementById('resolve-overlay').classList.add('open');
+}
+
+function resolveBet(result) {
+  const b=bets.find(b=>b.id===pendingResolveId); if(!b) return;
+  const p=pnl(b.odds,b.stake,result);
+  b.result=result; b.pnl=p;
+  bankroll=parseFloat((result==='W'?bankroll+b.stake+p:bankroll-b.stake).toFixed(2));
+  bankroll=Math.max(0,bankroll);
+  save(); updateBR();
+  closeModal('resolve-overlay');
+  renderHistory();
+}
+
+// ── HISTORY ───────────────────────────────────────────────────────────
+function renderHistory() {
+  if(!bets.length){document.getElementById('hist-empty').style.display='block';document.getElementById('hist-table').style.display='none';return;}
+  document.getElementById('hist-empty').style.display='none';
+  document.getElementById('hist-table').style.display='block';
+  document.getElementById('hist-tbody').innerHTML=[...bets].reverse().map(b=>{
+    const pr=b.result==='P';
+    const pStr=pr?'—':`<span class="${b.pnl>=0?'pnl-p':'pnl-n'}">${fm(b.pnl)}</span>`;
+    const rLabel=b.result==='W'?'WIN':b.result==='L'?'LOSS':'PENDING';
+    return `<tr>
+      <td style="color:var(--mt);font-size:11px;font-family:var(--mono)">${b.date}</td>
+      <td><div style="font-weight:600">${b.team}</div><div style="font-size:11px;color:var(--mt)">vs ${b.opp}</div></td>
+      <td style="font-family:var(--mono)">${fo(b.odds)}</td>
+      <td style="font-family:var(--mono)">$${b.stake}</td>
+      <td style="font-size:11px;color:var(--mt2)">${b.book}</td>
+      <td><span class="rb ${b.result}">${rLabel}</span></td>
+      <td>${pStr}</td>
+      <td style="font-family:var(--mono);color:var(--mt);font-size:11px">${b.edge>=0?'+':''}${b.edge.toFixed(1)}%</td>
+      <td>${pr?`<button class="mark-btn" onclick="openResolve(${b.id})">Mark result</button>`:''}${b.notes?`<div style="font-size:10px;color:var(--mt);margin-top:3px">${b.notes}</div>`:''}</td>
+    </tr>`;
+  }).join('');
+}
+
+// ── PERFORMANCE ───────────────────────────────────────────────────────
+function renderPerf() {
+  const settled=bets.filter(b=>b.result!=='P');
+  const wins=settled.filter(b=>b.result==='W').length;
+  const losses=settled.length-wins;
+  const wagered=bets.reduce((s,b)=>s+b.stake,0);
+  const totalPnl=settled.reduce((s,b)=>s+b.pnl,0);
+  const roi=wagered?(totalPnl/wagered*100).toFixed(1):null;
+  const wr=settled.length?(wins/settled.length*100).toFixed(1):null;
+  const avgLine=settled.length?Math.round(settled.reduce((s,b)=>s+b.odds,0)/settled.length):null;
+  const avgEdge=settled.length?(settled.reduce((s,b)=>s+b.edge,0)/settled.length).toFixed(1):null;
+  const pnlColor=totalPnl>=0?'var(--gr)':'var(--rd)';
+  const roiColor=parseFloat(roi)>=0?'var(--gr)':'var(--rd)';
+
+  const buckets=[{min:0.60,max:0.65,lbl:'60–65%'},{min:0.65,max:0.70,lbl:'65–70%'},{min:0.70,max:1,lbl:'70%+'}];
+  const calibHtml=buckets.map(bk=>{
+    const inB=settled.filter(b=>b.trueProb>=bk.min&&b.trueProb<bk.max);
+    const w=inB.filter(b=>b.result==='W').length;
+    const act=inB.length?Math.round(w/inB.length*100):null;
+    const col=act===null?'var(--s3)':act>=60?'var(--gr)':'var(--am)';
+    return `<div class="crow">
+      <div class="clbl">${bk.lbl}</div>
+      <div class="cbar"><div class="cfill" style="width:${act||0}%;background:${col}"></div></div>
+      <div class="cpct" style="color:${col}">${act!==null?act+'%':'n/a'}</div>
+      <div class="ccount">${inB.length} bets</div>
+    </div>`;
+  }).join('');
+
+  document.getElementById('perf-content').innerHTML=`
+    <div class="perf-grid">
+      <div class="pc"><div class="pl">Total bets</div><div class="pv" style="color:var(--bl)">${settled.length||'—'}</div><div class="ps">${bets.filter(b=>b.result==='P').length} pending</div></div>
+      <div class="pc"><div class="pl">Win rate</div><div class="pv" style="color:var(--gr)">${wr?wr+'%':'—'}</div><div class="ps">${wins}W – ${losses}L</div></div>
+      <div class="pc"><div class="pl">Total P&L</div><div class="pv" style="color:${pnlColor}">${settled.length?fm(totalPnl):'—'}</div><div class="ps">on $${wagered.toFixed(0)} wagered</div></div>
+      <div class="pc"><div class="pl">ROI</div><div class="pv" style="color:${roiColor}">${roi?roi+'%':'—'}</div></div>
+      <div class="pc"><div class="pl">Avg line</div><div class="pv" style="color:var(--tx)">${avgLine?fo(avgLine):'—'}</div></div>
+      <div class="pc"><div class="pl">Avg edge</div><div class="pv" style="color:var(--pu)">${avgEdge?'+'+avgEdge+'%':'—'}</div></div>
+    </div>
+    <div class="calib">
+      <div class="calib-title">Model calibration — actual win % vs expected</div>
+      ${calibHtml}
+      <div class="calib-note">Tracks whether your 60%+ probability estimates match real outcomes over time. Green = calibrated or better. Amber = model may be overconfident in this range.</div>
+    </div>`;
+}
+
+// ── EXPORT ────────────────────────────────────────────────────────────
+function exportCSV() {
+  if(!bets.length){alert('No bets to export yet.');return;}
+  const hdr=['Date','Team','Opponent','Side','Odds','Stake','Book','Result','PnL','Edge%','TrueProb%','Notes'];
+  const rows=bets.map(b=>[b.date,b.team,b.opp,b.side,b.odds,b.stake,b.book,b.result,b.pnl.toFixed(2),b.edge.toFixed(1),(b.trueProb*100).toFixed(1),b.notes||''].join(','));
+  const blob=new Blob([[hdr.join(','),...rows].join('\n')],{type:'text/csv'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='mlb60_bets.csv';a.click();
+}
+
+// ── HELPERS ───────────────────────────────────────────────────────────
+function showErr(msg) {
+  const el=document.getElementById('err'); el.textContent=msg; el.style.display='block';
+  setTimeout(()=>el.style.display='none',8000);
+}
+function showAlert(msg) {
+  const el=document.getElementById('alert-banner'); el.textContent=msg; el.style.display='block';
+  setTimeout(()=>el.style.display='none',5000);
+}
+
+// ── QUOTA ─────────────────────────────────────────────────────────────
+function updateQuota(remaining) {
+  const pill=document.getElementById('quota-pill');
+  const val=document.getElementById('quota-val');
+  pill.style.display='flex';
+  val.textContent=remaining+' req left';
+  val.className='quota-val '+(remaining>100?'quota-ok':remaining>30?'quota-warn':'quota-low');
+}
+
+// ── NON-QUALIFYING ────────────────────────────────────────────────────
+function renderNQ(nqGames) {
+  const sec=document.getElementById('nq-section');
+  if(!nqGames.length){sec.style.display='none';return;}
+  sec.style.display='block';
+  document.getElementById('nq-label').textContent=`Show ${nqGames.length} non-qualifying game${nqGames.length!==1?'s':''}`;
+  document.getElementById('nq-grid').innerHTML=nqGames.map(g=>`
+    <div class="nq-card">
+      <div class="nq-teams">
+        <div class="nq-name">${g.away} @ ${g.home}</div>
+        <div class="nq-time">${g.gameTime}</div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:4px;align-items:flex-end">
+        <div class="nq-odds">${g.favTeam}: ${fo(g.favOdds)}</div>
+        <div class="nq-prob">${(g.homeProb*100).toFixed(1)}% / ${(g.awayProb*100).toFixed(1)}%</div>
+      </div>
+      <div class="nq-reason">${g.reason}</div>
+    </div>`).join('');
+}
+
+function toggleNQ(el) {
+  const grid=document.getElementById('nq-grid');
+  const arrow=document.getElementById('nq-arrow');
+  const lbl=document.getElementById('nq-label');
+  const isOpen=grid.style.display!=='none';
+  grid.style.display=isOpen?'none':'flex';
+  grid.style.flexDirection='column';
+  grid.style.gap='6px';
+  arrow.classList.toggle('open',!isOpen);
+  const count=document.querySelectorAll('.nq-card').length;
+  lbl.textContent=(isOpen?'Show ':'Hide ')+count+` non-qualifying game${count!==1?'s':''}`;
+}
+
+// ── PROMOS ────────────────────────────────────────────────────────────
+function openPromoModal() {
+  const today = new Date();
+  const defaultExpiry = new Date(today.getTime() + 7*24*60*60*1000).toISOString().split('T')[0];
+  document.getElementById('pm-expiry').value = defaultExpiry;
+  document.getElementById('pm-value').value = '';
+  document.getElementById('pm-maxstake').value = '';
+  document.getElementById('pm-notes').value = '';
+  updatePromoHelp();
+  document.getElementById('promo-overlay').classList.add('open');
+}
+
+function updatePromoHelp() {
+  const type = document.getElementById('pm-type').value;
+  const lbl = document.getElementById('pm-val-label');
+  const help = document.getElementById('pm-help');
+  const helps = {
+    odds_boost: {lbl:'Boost % (e.g. 20 for +20 to line)', txt:'Odds boost adds points to the American odds line. e.g. –150 becomes –130 with a 20pt boost. Enter the % or point value offered.'},
+    profit_boost: {lbl:'Boost % (e.g. 25 for 25% more profit)', txt:'Profit boost increases your net winnings by the stated %. Your original stake is returned normally. Effectively improves the line you\'re getting.'},
+    no_sweat: {lbl:'Max free bet value ($)', txt:'If you lose, you get a free bet up to this value. This lowers your effective risk — the app will relax the edge threshold based on expiry urgency.'},
+    bonus_bet: {lbl:'Bonus bet value ($)', txt:'Stake is a free bet — you only receive the profit if you win, not the original stake back. Best used on higher odds where the stake return matters less.'}
+  };
+  lbl.textContent = helps[type].lbl;
+  help.textContent = helps[type].txt;
+}
+
+function promoUrgency(expiry) {
+  const days = Math.ceil((new Date(expiry) - new Date()) / (1000*60*60*24));
+  if(days <= 1) return {label:'EXPIRES TODAY', cls:'urgency-high', days, minEdge: 1};
+  if(days <= 2) return {label:`${days}d left`, cls:'urgency-high', days, minEdge: 1};
+  if(days <= 6) return {label:`${days}d left`, cls:'urgency-med', days, minEdge: 3};
+  return {label:`${days}d left`, cls:'urgency-low', days, minEdge: 5};
+}
+
+function applyPromoToOdds(odds, promo) {
+  if(promo.type === 'odds_boost') {
+    const boost = parseFloat(promo.value) || 0;
+    return odds + boost;
+  }
+  if(promo.type === 'profit_boost') {
+    const pct = (parseFloat(promo.value) || 0) / 100;
+    const decOdds = odds > 0 ? (odds/100) : (100/Math.abs(odds));
+    const boostedDec = decOdds * (1 + pct);
+    return boostedDec >= 1 ? Math.round(boostedDec * 100) : -Math.round(100 / boostedDec);
+  }
+  return odds;
+}
+
+function savePromo() {
+  const book = document.getElementById('pm-book').value;
+  const type = document.getElementById('pm-type').value;
+  const value = document.getElementById('pm-value').value;
+  const maxStake = document.getElementById('pm-maxstake').value;
+  const expiry = document.getElementById('pm-expiry').value;
+  const notes = document.getElementById('pm-notes').value;
+  if(!expiry){alert('Please set an expiry date.');return;}
+  promos.push({id: Date.now(), book, type, value, maxStake: parseFloat(maxStake)||50, expiry, notes});
+  save();
+  renderPromoList();
+  closeModal('promo-overlay');
+  if(allPicks.length > 0) renderPromoPicksFromGames(allPicks, allNQGames);
+}
+
+function deletePromo(id) {
+  promos = promos.filter(p => p.id !== id);
+  save();
+  renderPromoList();
+  if(allPicks.length > 0) renderPromoPicksFromGames(allPicks, allNQGames);
+}
+
+function renderPromoList() {
+  const el = document.getElementById('promo-list');
+  const active = promos.filter(p => new Date(p.expiry) >= new Date());
+  if(!active.length) {
+    el.innerHTML = '<div style="font-size:12px;color:var(--mt);padding:4px 0">No active promos. Add tokens or boosts above to see promo-adjusted picks.</div>';
+    return;
+  }
+  const typeLabels = {odds_boost:'Odds Boost',profit_boost:'Profit Boost',no_sweat:'No Sweat Token',bonus_bet:'Bonus Bet'};
+  el.innerHTML = active.map(p => {
+    const u = promoUrgency(p.expiry);
+    const valStr = p.type==='no_sweat'||p.type==='bonus_bet' ? `$${p.value}` : `+${p.value}%`;
+    return `<div class="promo-item">
+      <div class="promo-book">${p.book}</div>
+      <div class="promo-type">${typeLabels[p.type]}${p.notes?` · <span style="color:var(--mt)">${p.notes}</span>`:''}</div>
+      <div class="promo-val">${valStr}</div>
+      <div class="promo-urgency ${u.cls}">${u.label}</div>
+      <button class="promo-del" onclick="deletePromo(${p.id})">×</button>
+    </div>`;
+  }).join('');
+}
+
+function renderPromoPicksFromGames(qualPicks, nqGames) {
+  const wrap = document.getElementById('promo-picks-wrap');
+  const grid = document.getElementById('promo-picks-grid');
+  const active = promos.filter(p => new Date(p.expiry) >= new Date());
+  if(!active.length || (!qualPicks.length && !nqGames.length)) {
+    wrap.style.display = 'none'; return;
+  }
+
+  const typeLabels = {odds_boost:'Odds Boost',profit_boost:'Profit Boost',no_sweat:'No Sweat Token',bonus_bet:'Bonus Bet'};
+  const promoResults = [];
+
+  // Check each promo against all games (qualified + non-qualifying)
+  for(const promo of active) {
+    const u = promoUrgency(promo.expiry);
+
+    // Build candidate list from all available games data
+    const candidates = [...qualPicks];
+
+    // Also check NQ games — see if promo would qualify them
+    for(const nq of nqGames) {
+      // reconstruct minimal pick objects from nq data for both sides
+      [{team:nq.home,opp:nq.away,odds:nq.homeOdds,prob:nq.homeProb,side:'home'},
+       {team:nq.away,opp:nq.home,odds:nq.awayOdds,prob:nq.awayProb,side:'away'}].forEach(side => {
+        candidates.push({
+          id:`nq-${nq.home}-${nq.away}-${side.side}`,
+          gameId:`${nq.home}-${nq.away}`,
+          team:side.team, opp:side.opp, side:side.side,
+          bestOdds:side.odds, bestBook:nq.homeBook||'—',
+          trueProb:side.prob, implied:a2i(side.odds),
+          edge:(side.prob - a2i(side.odds))*100,
+          spread:0, allBooks:[], gameTime:nq.gameTime,
+          home:nq.home, away:nq.away, stake:0, logged:false, isNQ:true
+        });
+      });
+    }
+
+    for(const pick of candidates) {
+      // Only apply promo to the matching book (or any book for tokens)
+      const boostedOdds = applyPromoToOdds(pick.bestOdds, promo);
+      const boostedImplied = a2i(boostedOdds);
+      const boostedEdge = (pick.trueProb - boostedImplied) * 100;
+      const maxStake = Math.min(promo.maxStake, stake(boostedOdds, boostedEdge, bankroll));
+
+      if(pick.trueProb >= 0.60 && boostedEdge >= u.minEdge && boostedOdds >= -250) {
+        // Only include if promo meaningfully improves the pick
+        const improvement = boostedEdge - pick.edge;
+        if(improvement > 0.5 || pick.isNQ) {
+          promoResults.push({...pick, boostedOdds, boostedEdge, boostedImplied, improvement, promo, urgency:u, maxStake, typeLabel:typeLabels[promo.type]});
+        }
+      }
+    }
+  }
+
+  // Deduplicate — keep best promo per game/side
+  const seen = new Map();
+  const deduped = promoResults.filter(r => {
+    const key = `${r.gameId}-${r.side}-${r.promo.id}`;
+    if(seen.has(key)) return false;
+    seen.set(key, true); return true;
+  }).sort((a,b) => b.boostedEdge - a.boostedEdge);
+
+  if(!deduped.length) { wrap.style.display='none'; return; }
+
+  document.getElementById('promo-picks-count').textContent = deduped.length + ' promo picks';
+  wrap.style.display = 'block';
+
+  grid.innerHTML = deduped.map(r => {
+    const isImproved = !r.isNQ;
+    const baseLabel = r.isNQ ? 'NQ without promo' : `Base edge: +${r.edge.toFixed(1)}%`;
+    return `<div class="promo-pick-card">
+      <div class="promo-pick-head">
+        <div class="promo-badge">${r.promo.book} ${r.typeLabel}</div>
+        <div class="pick-info">
+          <div class="pick-teams">${r.team} vs ${r.opp}</div>
+          <div class="pick-sub">Bet <strong>${r.team}</strong> &nbsp;·&nbsp; ${r.gameTime}</div>
+          <div class="pick-stake" style="color:var(--am)">$${r.maxStake} max stake (promo limit)</div>
+        </div>
+        <div class="pick-odds-blk">
+          <div class="pick-odds" style="color:var(--am)">${fo(r.boostedOdds)}</div>
+          <div class="pick-book">BOOSTED LINE</div>
+        </div>
+      </div>
+      <div class="promo-body">
+        <div class="urgency-bar">
+          <span class="promo-urgency ${r.urgency.cls}">${r.urgency.label}</span>
+          <span>Min edge threshold at this urgency: ≥${r.urgency.minEdge}%</span>
+        </div>
+        <div class="meta">
+          <div class="mi"><div class="ml">True prob</div><div class="mv" style="color:var(--bl)">${(r.trueProb*100).toFixed(1)}%</div></div>
+          <div class="mi"><div class="ml">Boosted edge</div><div class="mv" style="color:var(--am)">+${r.boostedEdge.toFixed(1)}%</div></div>
+          <div class="mi"><div class="ml">Base</div><div class="mv" style="color:var(--mt2)">${baseLabel}</div></div>
+          <div class="mi"><div class="ml">Improvement</div><div class="mv" style="color:var(--gr)">+${r.improvement.toFixed(1)}%</div></div>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ── INIT ──────────────────────────────────────────────────────────────
+load();
+if(!localStorage.getItem('mlb60_br')) setTimeout(openBRModal, 500);
+</script>
+</body>
+</html>
